@@ -1,6 +1,34 @@
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name VARCHAR(20) NOT NULL,
-  password VARCHAR(20) NOT NULL,
-  picture VARCHAR(255)
+CREATE TABLE IF NOT EXISTS bubbles (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  zip     VARCHAR(5)   NOT NULL,
+  city    VARCHAR(100) NOT NULL,
+  country VARCHAR(2)   NOT NULL,
+  name    VARCHAR(100) NOT NULL,
+  open    INTEGER      NOT NULL DEFAULT 1
 );
+
+INSERT OR IGNORE INTO bubbles (id, zip, city, country, name, open) VALUES
+  (1, '08001', 'Barcelona', 'ES', 'Bubble Barcelona', 1),
+  (2, '10001', 'New York',  'US', 'Bubble New York',  1),
+  (3, '75001', 'Paris',     'FR', 'Bubble Paris',     0);
+
+CREATE TABLE IF NOT EXISTS users (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  name          VARCHAR(60)  NOT NULL,
+  email         VARCHAR(255) NOT NULL UNIQUE,
+  phone         VARCHAR(15),
+  phone_country VARCHAR(5),
+  dni           VARCHAR(9)   NOT NULL UNIQUE,
+  zip           VARCHAR(5)   NOT NULL,
+  city          VARCHAR(100) NOT NULL,
+  country       VARCHAR(2)   NOT NULL,
+  gender        VARCHAR(20),
+  password      VARCHAR(255) NOT NULL,
+  username      VARCHAR(30)  NOT NULL UNIQUE,
+  picture       VARCHAR(255),
+  status        VARCHAR(10)  NOT NULL DEFAULT 'PENDING',
+  role          VARCHAR(20)  NOT NULL DEFAULT 'USER',
+  bubble_id     INTEGER,
+  created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (bubble_id) REFERENCES bubbles(id)
+)

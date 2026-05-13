@@ -1,21 +1,33 @@
 package epaw.lab3.service;
 
-import java.util.HashMap;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 import epaw.lab3.model.User;
 import epaw.lab3.repository.UserRepository;
 import jakarta.servlet.http.Part;
 
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-
 public class UserService {
 
     private static UserService instance;
     private UserRepository userRepository;
+
+    private static final String NAME_RE     = "^[A-Za-zÀ-ÿ\\s\\-']{2,60}$";
+    private static final String EMAIL_RE    = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
+    private static final String PHONE_RE    = "^\\d{7,15}$";
+    private static final String DNI_RE      = "^\\d{8}[A-Za-z]$";
+    private static final String ZIP_RE      = "^\\d{5}$";
+    private static final String USERNAME_RE = "^[A-Za-z0-9_]{4,30}$";
+    private static final String PASSWORD_RE = "^(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=]).{8,}$";
+
+    private static final Set<String> BLOCKED_USERNAMES = Set.of("admin", "root", "administrator");
 
     private UserService() {
         this.userRepository = UserRepository.getInstance();
@@ -28,41 +40,111 @@ public class UserService {
         return instance;
     }
 
-    private static final String PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{8,}$";
+    public Map<String, String> register(User user, String passwordConfirm) {
+        Map<String, String> errors = new LinkedHashMap<>();
 
-    public Map<String, String> validate(User user) {
-        Map<String, String> errors = new HashMap<>();
-
+        // --- Format validations ---
         String name = user.getName();
         if (name == null || name.trim().isEmpty()) {
-            errors.put("name", "Username cannot be empty.");
-        } else if (name.length() < 5 || name.length() > 20) {
-            errors.put("name", "Username must be between 5 and 20 characters.");
-        } else if (userRepository.existsByUsername(name)) {
-            errors.put("name", "Username already exists.");
+            errors.put("name", "Full name is required.");
+        } else if (!name.matches(NAME_RE)) {
+            errors.put("name", "Name must be 2–60 letters (accents, hyphens and apostrophes allowed).");
+        }
+
+        String email = user.getEmail();
+        if (email == null || email.trim().isEmpty()) {
+            errors.put("email", "Email is required.");
+        } else if (!email.matches(EMAIL_RE)) {
+            errors.put("email", "Enter a valid email address.");
+        }
+
+        String phone = user.getPhone();
+        if (phone != null && !phone.trim().isEmpty() && !phone.matches(PHONE_RE)) {
+            errors.put("phone", "Phone must be 7–15 digits (no spaces or dashes).");
+        }
+
+        String dni = user.getDni();
+        if (dni == null || dni.trim().isEmpty()) {
+            errors.put("dni", "DNI is required.");
+        } else if (!dni.matches(DNI_RE)) {
+            errors.put("dni", "DNI must be 8 digits followed by an uppercase letter (e.g. 12345678A).");
+        }
+
+        String zip = user.getZip();
+        if (zip == null || zip.trim().isEmpty()) {
+            errors.put("zip", "ZIP code is required.");
+        } else if (!zip.matches(ZIP_RE)) {
+            errors.put("zip", "ZIP code must be exactly 5 digits.");
+        }
+
+        String city = user.getCity();
+        if (city == null || city.trim().isEmpty()) {
+            errors.put("city", "City is required.");
+        }
+
+        String country = user.getCountry();
+        if (country == null || country.trim().isEmpty()) {
+            errors.put("country", "Country code is required.");
+        } else if (country.length() != 2) {
+            errors.put("country", "Country must be a 2-letter ISO code (e.g. ES, US, FR).");
+        }
+
+        String username = user.getUsername();
+        if (username == null || username.trim().isEmpty()) {
+            errors.put("username", "Username is required.");
+        } else if (!username.matches(USERNAME_RE)) {
+            errors.put("username", "Username must be 4–30 characters (letters, digits, underscores).");
+        } else if (BLOCKED_USERNAMES.contains(username.toLowerCase())) {
+            errors.put("username", "That username is reserved. Please choose another.");
         }
 
         String password = user.getPassword();
-        if (password == null || !password.matches(PASSWORD_REGEX)) {
-            errors.put("password",
-                    "Minimum 8 characters, including uppercase, numbers, and a special character (@#$%^&*).");
+        if (password == null || !password.matches(PASSWORD_RE)) {
+            errors.put("password", "Password needs at least 8 characters, one uppercase, one digit, and one special character (!@#$%^&*).");
+        } else if (!password.equals(passwordConfirm)) {
+            errors.put("confirmPassword", "Passwords do not match.");
         }
 
-        return errors;
-    }
+        if (!errors.isEmpty()) return errors;
 
-    public Map<String, String> register(User user) {
-        Map<String, String> errors = validate(user);
-        if (errors.isEmpty()) {
-            userRepository.save(user);
+        // --- Uniqueness checks ---
+        if (userRepository.existsByEmail(email)) {
+            errors.put("email", "This email address is already registered.");
         }
+        if (userRepository.existsByDni(dni)) {
+            errors.put("dni", "This DNI is already registered.");
+        }
+        if (userRepository.existsByUsername(username)) {
+            errors.put("username", "This username is already taken.");
+        }
+
+        if (!errors.isEmpty()) return errors;
+
+        // --- Bubble lookup ---
+        int bubbleId = userRepository.findBubbleId(zip, city, country);
+        if (bubbleId == -1) {
+            errors.put("zip", "No Bubble found for the given ZIP / city / country combination.");
+            return errors;
+        }
+
+        // --- Determine status and assign bubble ---
+        user.setBubbleId(bubbleId);
+        user.setStatus(userRepository.isBubbleOpen(bubbleId) ? "APPROVED" : "PENDING");
+        user.setRole("USER");
+        user.setDni(dni.toUpperCase());
+        user.setCountry(country.toUpperCase());
+        user.setPassword(DigestUtils.sha256Hex(password));
+
+        userRepository.save(user);
         return errors;
     }
 
     public Map<String, String> login(User user) {
-        Map<String, String> errors = new HashMap<>();
+        Map<String, String> errors = new LinkedHashMap<>();
+        String hashed = DigestUtils.sha256Hex(user.getPassword());
+        user.setPassword(hashed);
         if (!userRepository.checkLogin(user)) {
-            errors.put("password", "The combination of name and password does not match in our dataabase");
+            errors.put("password", "Username or password is incorrect.");
         }
         return errors;
     }
@@ -71,15 +153,12 @@ public class UserService {
         if (filePart == null || filePart.getSize() <= 0) {
             return null;
         }
-
         try {
             String fileName = filePart.getSubmittedFileName();
             String extension = fileName.substring(fileName.lastIndexOf("."));
             String newFileName = username + extension;
-
             String resourcesDir = "EXTERNAL_RESOURCES";
             Files.createDirectories(Paths.get(resourcesDir));
-
             try (InputStream input = filePart.getInputStream()) {
                 Files.copy(input, Paths.get(resourcesDir, newFileName), StandardCopyOption.REPLACE_EXISTING);
             }
@@ -89,5 +168,4 @@ public class UserService {
             return null;
         }
     }
-
 }

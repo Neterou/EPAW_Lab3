@@ -28,34 +28,31 @@ public class Register extends HttpServlet {
 
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-
 		request.getRequestDispatcher("Register.jsp").forward(request, response);
-
 	}
 
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 
 		User user = new User();
+		String passwordConfirm = request.getParameter("confirmPassword");
 
 		try {
 			BeanUtils.populate(user, request.getParameterMap());
-			String picturePath = userService.saveProfilePicture(request.getPart("picture"), user.getName());
+			String picturePath = userService.saveProfilePicture(request.getPart("picture"), user.getUsername());
 			user.setPicture(picturePath);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
-		Map<String, String> errors = userService.register(user);
+		Map<String, String> errors = userService.register(user, passwordConfirm);
 		if (errors.isEmpty()) {
-			request.setAttribute("user", user);
+			request.setAttribute("registered", true);
 			request.getRequestDispatcher("Login.jsp").forward(request, response);
 		} else {
 			request.setAttribute("user", user);
 			request.setAttribute("errors", errors);
 			request.getRequestDispatcher("Register.jsp").forward(request, response);
 		}
-
 	}
-
 }

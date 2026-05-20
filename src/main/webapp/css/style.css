@@ -1,9 +1,24 @@
 @charset "UTF-8";
 
+body {
+  background-color: #f1f1f1;
+}
+
 input.w3-input:valid {
-	border-left: 4px solid green !important;
+  border-left: 4px solid green !important;
 }
 
 input.w3-input:invalid {
-	border-left: 4px solid red !important;
+  border-left: 4px solid red !important;
+}
+
+select.w3-select:valid {
+  border-left: 4px solid green !important;
+}
+
+.field-error {
+  color: #c0392b;
+  font-size: 0.85em;
+  margin-top: 2px;
+  display: block;
 }

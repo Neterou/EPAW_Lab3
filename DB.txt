@@ -31,4 +31,10 @@ CREATE TABLE IF NOT EXISTS users (
   bubble_id     INTEGER,
   created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (bubble_id) REFERENCES bubbles(id)
-)
+);
+
+-- Default admin user for demo: username=admin_demo  password=Admin123!
+INSERT OR IGNORE INTO users (name, email, dni, zip, city, country, password, username, status, role, bubble_id)
+VALUES ('Admin Demo', 'admin@demo.com', '00000000A', '08001', 'Barcelona', 'ES',
+        '3eb3fe66b31e3b4d10fa70b5cad49c7112294af6ae4e476a1c405155d45aa121',
+        'admin_demo', 'APPROVED', 'ADMIN', 1)

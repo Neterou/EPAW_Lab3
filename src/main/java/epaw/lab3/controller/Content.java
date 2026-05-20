@@ -21,7 +21,7 @@ public class Content extends HttpServlet {
 			throws ServletException, IOException {
 
 		HttpSession session = request.getSession(false);
-		String view = "Login";
+		String view = "Login.jsp";
 
 		if (session != null && session.getAttribute("user") != null)
 			view = "Welcome.jsp";

@@ -15,7 +15,7 @@ public class Feed extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
-            response.sendRedirect("Login");
+            request.getRequestDispatcher("Login.jsp").forward(request, response);
             return;
         }
         request.setAttribute("user", session.getAttribute("user"));

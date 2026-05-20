@@ -16,12 +16,12 @@ public class Admin extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
-            response.sendRedirect("Login");
+            request.getRequestDispatcher("Login.jsp").forward(request, response);
             return;
         }
         User user = (User) session.getAttribute("user");
         if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
-            response.sendRedirect("Content");
+            request.getRequestDispatcher("Welcome.jsp").forward(request, response);
             return;
         }
         request.getRequestDispatcher("AdminPanel.jsp").forward(request, response);
